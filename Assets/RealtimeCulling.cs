@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
 using Unity.Jobs;
+using Unity.Burst;
 using UnityEngine;
 
 public class RealtimeCulling : MonoBehaviour
@@ -16,23 +17,23 @@ public class RealtimeCulling : MonoBehaviour
     [SerializeField, Range(0, 25)] private float m_NoiseStrength;
 
     private Ray[] m_ScreenPointRays;
-    private List<Cullable> m_Cullables;
+    private List<CullableObject> m_RegisteredCullables;
 
     private NativeArray<RaycastHit> m_RaycastResults;
     private NativeArray<RaycastCommand> m_RaycastCommands;
     private NativeArray<bool> m_ResultsFlags;
+    private NativeArray<int> m_CullableIDs;
+    private NativeArray<int> m_HitIDs;
 
     private JobHandle m_RaycastJob;
 
-    private bool m_Active = false;
-
     public NativeArray<bool> ResultsFlags { get => m_ResultsFlags; }
 
-    public bool Active { get => m_Active; }
+    private const int MAX_OBJECTS = 1024;
 
     private void Start()
     {
-        m_ObjectSpawner.OnSpawnFinished += OnSpawnFinished;
+        m_RegisteredCullables = new List<CullableObject>(MAX_OBJECTS);
 
         float pointsRoot = Mathf.Sqrt(m_ScreenPointsTotal);
         float aspectRatio = m_Camera.aspect;
@@ -63,18 +64,18 @@ public class RealtimeCulling : MonoBehaviour
         //Set up native arrays for the jobs, clear memory
         m_RaycastResults = new NativeArray<RaycastHit>(m_ScreenPointsTotal, Allocator.Persistent, NativeArrayOptions.ClearMemory);
         m_RaycastCommands = new NativeArray<RaycastCommand>(m_ScreenPointsTotal, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+
+        //Set up our objects arrays using our defined maximum
+        m_CullableIDs = new NativeArray<int>(MAX_OBJECTS, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+        m_HitIDs = new NativeArray<int>(MAX_OBJECTS, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+        m_ResultsFlags = new NativeArray<bool>(MAX_OBJECTS, Allocator.Persistent, NativeArrayOptions.ClearMemory);
     }
 
     private void Update()
     {
-        if (!m_Active)
-        {
-            return;
-        }
-
         RaycastCommand command = new RaycastCommand();
 
-        //Populate job data
+        //Populate job data - could this be optimised? Possible unbreakable reliance on the camera position
         for (int i = 0; i < m_ScreenPointsTotal; i++)
         {
             command.from = m_ScreenPointRays[i].origin + m_Camera.transform.position;
@@ -85,22 +86,14 @@ public class RealtimeCulling : MonoBehaviour
             m_RaycastCommands[i] = command;
         }
 
-        m_ResultsFlags = new NativeArray<bool>(m_Cullables.Count, Allocator.Persistent, NativeArrayOptions.ClearMemory);
-
         //Fire off job
         m_RaycastJob = RaycastCommand.ScheduleBatch(m_RaycastCommands, m_RaycastResults, m_BatchingAmount);
 
         //Make sure job is complete
         m_RaycastJob.Complete();
 
-        NativeArray<int> cullableIDs = new NativeArray<int>(m_Cullables.Count, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-
-        for (int i = 0; i < m_Cullables.Count; i++)
-        {
-            cullableIDs[i] = m_Cullables[i].Collider.GetInstanceID();
-        }
-
-        NativeArray<int> hitIDs = new NativeArray<int>(m_RaycastResults.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+        //TODO: Jobify arranging hit IDs
+        NativeArray<int> hitIDs = new NativeArray<int>(m_RaycastResults.Length, Allocator.TempJob, NativeArrayOptions.ClearMemory);
 
         for (int i = 0; i < m_RaycastResults.Length; i++)
         {
@@ -113,14 +106,19 @@ public class RealtimeCulling : MonoBehaviour
         ResultsJob resultsJob = new ResultsJob
         {
             Hits = hitIDs,
-            Cullables = cullableIDs,
+            Cullables = m_CullableIDs,
             Results = m_ResultsFlags
         };
 
-        resultsJob.Schedule(cullableIDs.Length, m_BatchingAmount).Complete();
+        resultsJob.Schedule(MAX_OBJECTS, m_BatchingAmount).Complete();
 
-        cullableIDs.Dispose();
         hitIDs.Dispose();
+
+        //Update all registered objects - Unsure if this is optimisable
+        for (int i = 0; i < m_RegisteredCullables.Count; i++)
+        {
+            m_RegisteredCullables[i].SetRenderState(m_ResultsFlags[i]);
+        }
     }
 
     private void OnDestroy()
@@ -128,22 +126,37 @@ public class RealtimeCulling : MonoBehaviour
         m_ResultsFlags.Dispose();
         m_RaycastResults.Dispose();
         m_RaycastCommands.Dispose();
+
+        m_CullableIDs.Dispose();
+        m_HitIDs.Dispose();
     }
 
-    private void OnSpawnFinished(List<Cullable> cullables)
+    public void Register(CullableObject objectToAdd)
     {
-        m_Active = true;
+        //TODO: Replace with ID requester
+        int objectID = m_RegisteredCullables.Count;
 
-        m_Cullables = cullables;
+        if (objectID < MAX_OBJECTS)
+        {
+            m_RegisteredCullables.Add(objectToAdd);
+
+            //TODO: Enable reuse of IDs
+            m_CullableIDs[objectID] = m_RegisteredCullables[objectID].Identifier;
+        }
+        else
+        {
+            Debug.LogError("[Culling] Cannot add new object as the limit has been reached");
+        }
+    }
+
+    public void Deregister(CullableObject objectToRemove)
+    {
+        m_RegisteredCullables.Remove(objectToRemove);
     }
 
     private void OnDrawGizmosSelected()
     {
-        if (!m_Active)
-        {
-            return;
-        }
-
+        return;
         for (int i = 0; i < m_ScreenPointRays.Length; i++)
         {
             Gizmos.DrawRay(m_ScreenPointRays[i].origin + m_Camera.transform.position, m_ScreenPointRays[i].direction * m_Camera.farClipPlane);

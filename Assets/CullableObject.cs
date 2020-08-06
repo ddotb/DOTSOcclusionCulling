@@ -12,6 +12,8 @@ public class CullableObject : MonoBehaviour
     private int m_Identifier;
     private int m_Index;
 
+    public Renderer Renderer { get => m_Renderer; }
+    public Collider Collider { get => m_Collider; }
     public int Identifier { get => m_Identifier; }
 
     public void Initialise(RealtimeCulling culling, int index)
@@ -20,18 +22,12 @@ public class CullableObject : MonoBehaviour
         m_Index = index;
 
         m_Identifier = m_Collider.GetInstanceID();
+
+        m_Culling.Register(this);
     }
 
-    private void LateUpdate()
+    public void SetRenderState(bool enabled)
     {
-        if (!m_Culling.Active)
-        {
-            return;
-        }
-
-        if (m_Culling.ResultsFlags != null && m_Culling.ResultsFlags.Length > 0)
-        {
-            m_Renderer.forceRenderingOff = !m_Culling.ResultsFlags[m_Index];
-        }
+        m_Renderer.forceRenderingOff = !enabled;
     }
 }

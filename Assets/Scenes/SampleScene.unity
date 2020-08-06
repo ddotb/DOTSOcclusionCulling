@@ -173,7 +173,7 @@ Camera:
     height: 1
   near clip plane: 0.3
   far clip plane: 1000
-  field of view: 10
+  field of view: 60
   orthographic: 0
   orthographic size: 5
   m_Depth: 0
@@ -219,10 +219,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Camera: {fileID: 797101118}
   m_ObjectSpawner: {fileID: 1560958747}
-  m_ScreenPointsTotal: 1000
+  m_ScreenPointsTotal: 2500
   m_BatchingAmount: 16
   m_MaxHits: 1
-  m_NoiseStrength: 25
+  m_NoiseStrength: 0
 --- !u!1 &1091380706
 GameObject:
   m_ObjectHideFlags: 0
