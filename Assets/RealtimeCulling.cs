@@ -12,6 +12,7 @@ public class RealtimeCulling : MonoBehaviour
     [SerializeField] private Spawner m_ObjectSpawner;
 
     [SerializeField, Range(100, 100000)] private int m_ScreenPointsTotal;
+    [SerializeField, Range(8, 2048)] private int m_MaxObjects;
     [SerializeField, Range(1, 16)] private int m_BatchingAmount;
     [SerializeField, Range(1, 8)] private int m_MaxHits;
     [SerializeField, Range(0, 25)] private float m_NoiseStrength;
@@ -29,11 +30,9 @@ public class RealtimeCulling : MonoBehaviour
 
     public NativeArray<bool> ResultsFlags { get => m_ResultsFlags; }
 
-    private const int MAX_OBJECTS = 1024;
-
     private void Start()
     {
-        m_RegisteredCullables = new List<CullableObject>(MAX_OBJECTS);
+        m_RegisteredCullables = new List<CullableObject>(m_MaxObjects);
 
         float pointsRoot = Mathf.Sqrt(m_ScreenPointsTotal);
         float aspectRatio = m_Camera.aspect;
@@ -44,6 +43,7 @@ public class RealtimeCulling : MonoBehaviour
 
         Vector3 screenRayPosition;
 
+        //TODO: Smarter points placement
         //Get roughly-evenly-spaced points across the frustum
         int index = 0;
         for (int i = 1; i < pointsRoot; i++)
@@ -66,9 +66,9 @@ public class RealtimeCulling : MonoBehaviour
         m_RaycastCommands = new NativeArray<RaycastCommand>(m_ScreenPointsTotal, Allocator.Persistent, NativeArrayOptions.ClearMemory);
 
         //Set up our objects arrays using our defined maximum
-        m_CullableIDs = new NativeArray<int>(MAX_OBJECTS, Allocator.Persistent, NativeArrayOptions.ClearMemory);
-        m_HitIDs = new NativeArray<int>(MAX_OBJECTS, Allocator.Persistent, NativeArrayOptions.ClearMemory);
-        m_ResultsFlags = new NativeArray<bool>(MAX_OBJECTS, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+        m_CullableIDs = new NativeArray<int>(m_MaxObjects, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+        m_HitIDs = new NativeArray<int>(m_MaxObjects, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+        m_ResultsFlags = new NativeArray<bool>(m_MaxObjects, Allocator.Persistent, NativeArrayOptions.ClearMemory);
     }
 
     private void Update()
@@ -110,7 +110,7 @@ public class RealtimeCulling : MonoBehaviour
             Results = m_ResultsFlags
         };
 
-        resultsJob.Schedule(MAX_OBJECTS, m_BatchingAmount).Complete();
+        resultsJob.Schedule(m_MaxObjects, m_BatchingAmount).Complete();
 
         hitIDs.Dispose();
 
@@ -136,7 +136,7 @@ public class RealtimeCulling : MonoBehaviour
         //TODO: Replace with ID requester
         int objectID = m_RegisteredCullables.Count;
 
-        if (objectID < MAX_OBJECTS)
+        if (objectID < m_MaxObjects)
         {
             m_RegisteredCullables.Add(objectToAdd);
 
@@ -156,13 +156,17 @@ public class RealtimeCulling : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
-        return;
-        for (int i = 0; i < m_ScreenPointRays.Length; i++)
+        if (m_ScreenPointRays != null)
         {
-            Gizmos.DrawRay(m_ScreenPointRays[i].origin + m_Camera.transform.position, m_ScreenPointRays[i].direction * m_Camera.farClipPlane);
+            for (int i = 0; i < m_ScreenPointsTotal; i++)
+            {
+                Gizmos.color = new Color((float)i / m_ScreenPointsTotal, (float)i / m_ScreenPointsTotal, (float)i / m_ScreenPointsTotal);
+                Gizmos.DrawRay(m_ScreenPointRays[i].origin + m_Camera.transform.position, m_ScreenPointRays[i].direction * m_Camera.farClipPlane);
+            }
         }
     }
 
+    [BurstCompile]
     private struct ResultsJob : IJobParallelFor
     {
         [ReadOnly] public NativeArray<int> Hits;

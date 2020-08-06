@@ -219,10 +219,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Camera: {fileID: 797101118}
   m_ObjectSpawner: {fileID: 1560958747}
-  m_ScreenPointsTotal: 2500
+  m_ScreenPointsTotal: 512
+  m_MaxObjects: 512
   m_BatchingAmount: 16
   m_MaxHits: 1
-  m_NoiseStrength: 0
+  m_NoiseStrength: 25
 --- !u!1 &1091380706
 GameObject:
   m_ObjectHideFlags: 0
@@ -362,6 +363,6 @@ MonoBehaviour:
   m_SpawnPrefab: {fileID: 3385490167378259961, guid: 9b76959042eec444ab766dbba66034f3,
     type: 3}
   m_Separation: 10
-  m_Height: 5
-  m_Width: 10
-  m_Depth: 10
+  m_Height: 20
+  m_Width: 5
+  m_Depth: 5
