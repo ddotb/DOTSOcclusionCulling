@@ -219,11 +219,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Camera: {fileID: 797101118}
   m_ObjectSpawner: {fileID: 1560958747}
-  m_ScreenPointsTotal: 2048
+  m_ScreenPointsTotal: 512
   m_MaxObjects: 512
   m_BatchingAmount: 16
   m_MaxHits: 1
-  m_NoiseStrength: 25
+  m_NoiseStrength: 0
 --- !u!1 &1091380706
 GameObject:
   m_ObjectHideFlags: 0
