@@ -11,11 +11,14 @@ public class RealtimeCulling : MonoBehaviour
     [SerializeField] private Camera m_Camera;
     [SerializeField] private Spawner m_ObjectSpawner;
 
+    [SerializeField] private AnimationCurve m_HorizontalBiasCurve;
+    [SerializeField] private AnimationCurve m_VerticalBiasCurve;
+
     [SerializeField, Range(64, 16348)] private int m_ScreenPointsTotal = 2048;
     [SerializeField, Range(8, 2048)] private int m_MaxObjects = 512;
     [SerializeField, Range(1, 16)] private int m_BatchingAmount = 16;
     [SerializeField, Range(1, 8)] private int m_MaxHits = 1;
-    [SerializeField, Range(0, 25)] private float m_NoiseStrength = 0;
+    [SerializeField, Range(0, 1)] private float m_BiasStrength = 0;
 
     [SerializeField]
     private bool m_ShowRaycasts;
@@ -38,33 +41,7 @@ public class RealtimeCulling : MonoBehaviour
     {
         m_RegisteredCullables = new List<CullableObject>(m_MaxObjects);
 
-        float pointsRoot = Mathf.Sqrt(m_ScreenPointsTotal);
-        float aspectRatio = m_Camera.aspect;
-
-        Vector3 separationUnit = new Vector3((float)Screen.height / (pointsRoot / aspectRatio), (float)Screen.width / (pointsRoot * aspectRatio));
-
-        m_ScreenPointRays = new Ray[m_ScreenPointsTotal];
-
-        Vector3 screenRayPosition;
-
-        //TODO: Smarter points placement
-        //TODO: add line of points along screen mid-height
-        //Get roughly-evenly-spaced points across the frustum
-        int index = 0;
-        for (int i = 1; i < pointsRoot; i++)
-        {
-            for (int j = 1; j < pointsRoot; j++)
-            {
-                screenRayPosition = new Vector3(j * separationUnit.x, i * separationUnit.y);
-
-                screenRayPosition += (Vector3)Random.insideUnitCircle * m_NoiseStrength;
-
-                m_ScreenPointRays[index] = m_Camera.ScreenPointToRay(screenRayPosition);
-
-                //Use index as we're storing in a 1D array
-                index++;
-            }
-        }
+        BuildScreenRays();
 
         //Set up native arrays for the jobs, clear memory
         m_RaycastResults = new NativeArray<RaycastHit>(m_ScreenPointsTotal, Allocator.Persistent, NativeArrayOptions.ClearMemory);
@@ -83,8 +60,11 @@ public class RealtimeCulling : MonoBehaviour
         };
     }
 
+
     private void Update()
     {
+        BuildScreenRays();
+
         RaycastCommand command = new RaycastCommand();
 
         //Populate job data - could this be optimised? Possible unbreakable reliance on the camera position
@@ -127,6 +107,41 @@ public class RealtimeCulling : MonoBehaviour
         for (int i = 0; i < m_RegisteredCullables.Count; i++)
         {
             m_RegisteredCullables[i].SetRenderState(m_ResultsFlags[i]);
+        }
+    }
+
+    private void BuildScreenRays()
+    {
+        float pointsRoot = Mathf.Sqrt(m_ScreenPointsTotal);
+        float aspectRatio = m_Camera.aspect;
+
+        Vector3 separationUnit = new Vector3((float)Screen.height / (pointsRoot / aspectRatio), (float)Screen.width / (pointsRoot * aspectRatio));
+
+        m_ScreenPointRays = new Ray[m_ScreenPointsTotal];
+
+        Vector3 screenRayPosition;
+
+        //TODO: Smarter points placement
+        //TODO: add line of points along screen mid-height
+        //Get roughly-evenly-spaced points across the frustum
+        int index = 0;
+        for (int i = 1; i < pointsRoot; i++)
+        {
+            for (int j = 1; j < pointsRoot; j++)
+            {
+                //TODO: Factor in bias strength
+                float xPos = m_HorizontalBiasCurve.Evaluate((j * separationUnit.x) / Screen.width) * Screen.width;
+                float yPos = m_VerticalBiasCurve.Evaluate((i * separationUnit.y) / Screen.height) * Screen.height;
+
+                screenRayPosition = new Vector3(xPos, yPos);
+
+                screenRayPosition += (Vector3)Random.insideUnitCircle * m_BiasStrength;
+
+                m_ScreenPointRays[index] = m_Camera.ScreenPointToRay(screenRayPosition);
+
+                //Use index as we're storing in a 1D array
+                index++;
+            }
         }
     }
 
