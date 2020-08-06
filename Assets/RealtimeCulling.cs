@@ -104,7 +104,7 @@ public class RealtimeCulling : MonoBehaviour
 
         //TODO: Jobify arranging hit IDs
         //This is taking 45% of the total feature time now
-        for (int i = 0; i < m_RaycastResults.Length; i++)
+        for (int i = 0; i < m_ScreenPointsTotal; i++)
         {
             Collider collider = m_RaycastResults[i].collider;
 
