@@ -11,11 +11,14 @@ public class RealtimeCulling : MonoBehaviour
     [SerializeField] private Camera m_Camera;
     [SerializeField] private Spawner m_ObjectSpawner;
 
-    [SerializeField, Range(100, 100000)] private int m_ScreenPointsTotal = 2048;
+    [SerializeField, Range(64, 16348)] private int m_ScreenPointsTotal = 2048;
     [SerializeField, Range(8, 2048)] private int m_MaxObjects = 512;
     [SerializeField, Range(1, 16)] private int m_BatchingAmount = 16;
     [SerializeField, Range(1, 8)] private int m_MaxHits = 1;
     [SerializeField, Range(0, 25)] private float m_NoiseStrength = 0;
+
+    [SerializeField]
+    private bool m_ShowRaycasts;
 
     private Ray[] m_ScreenPointRays;
     private List<CullableObject> m_RegisteredCullables;
@@ -45,6 +48,7 @@ public class RealtimeCulling : MonoBehaviour
         Vector3 screenRayPosition;
 
         //TODO: Smarter points placement
+        //TODO: add line of points along screen mid-height
         //Get roughly-evenly-spaced points across the frustum
         int index = 0;
         for (int i = 1; i < pointsRoot; i++)
@@ -104,6 +108,8 @@ public class RealtimeCulling : MonoBehaviour
 
         //TODO: Jobify arranging hit IDs
         //This is taking 45% of the total feature time now
+        //Why is there no good way to do this?
+        //Could memcpy into unsafe equivalent container and do parallel check on that
         for (int i = 0; i < m_ScreenPointsTotal; i++)
         {
             Collider collider = m_RaycastResults[i].collider;
@@ -157,14 +163,29 @@ public class RealtimeCulling : MonoBehaviour
         m_RegisteredCullables.Remove(objectToRemove);
     }
 
+    private void OnDrawGizmos()
+    {
+        if (m_RegisteredCullables != null)
+        {
+            Gizmos.color = new Color(1.0f, 0.0f, 0.0f, 0.05f);
+            for (int i = 0; i < m_RegisteredCullables.Count; i++)
+            {
+                Gizmos.DrawWireCube(m_RegisteredCullables[i].transform.position, m_RegisteredCullables[i].transform.lossyScale);
+            }
+        }
+    }
+
     private void OnDrawGizmosSelected()
     {
-        if (m_ScreenPointRays != null)
+        if (m_ShowRaycasts)
         {
-            for (int i = 0; i < m_ScreenPointsTotal; i++)
+            if (m_ScreenPointRays != null)
             {
-                Gizmos.color = new Color((float)i / m_ScreenPointsTotal, (float)i / m_ScreenPointsTotal, (float)i / m_ScreenPointsTotal);
-                Gizmos.DrawRay(m_ScreenPointRays[i].origin + m_Camera.transform.position, m_ScreenPointRays[i].direction * m_Camera.farClipPlane);
+                for (int i = 0; i < m_ScreenPointsTotal; i++)
+                {
+                    Gizmos.color = new Color((float)i / m_ScreenPointsTotal, (float)i / m_ScreenPointsTotal, (float)i / m_ScreenPointsTotal, 0.25f);
+                    Gizmos.DrawRay(m_ScreenPointRays[i].origin + m_Camera.transform.position, m_ScreenPointRays[i].direction * m_Camera.farClipPlane);
+                }
             }
         }
     }
