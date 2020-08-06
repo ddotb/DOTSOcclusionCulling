@@ -18,7 +18,7 @@ public class RealtimeCulling : MonoBehaviour
     [SerializeField, Range(8, 2048)] private int m_MaxObjects = 512;
     [SerializeField, Range(1, 16)] private int m_BatchingAmount = 16;
     [SerializeField, Range(1, 8)] private int m_MaxHits = 1;
-    [SerializeField, Range(0, 1)] private float m_BiasStrength = 0;
+    [SerializeField, Range(0, 1)] private float m_NoiseStrength = 0;
 
     [SerializeField]
     private bool m_ShowRaycasts;
@@ -40,6 +40,7 @@ public class RealtimeCulling : MonoBehaviour
     private void Start()
     {
         m_RegisteredCullables = new List<CullableObject>(m_MaxObjects);
+        m_ScreenPointRays = new Ray[m_ScreenPointsTotal];
 
         BuildScreenRays();
 
@@ -72,7 +73,7 @@ public class RealtimeCulling : MonoBehaviour
         for (int i = 0; i < m_ScreenPointsTotal; i++)
         {
             Ray ray = m_ScreenPointRays[i];
-            command.from = ray.origin + m_Camera.transform.position;
+            command.from = ray.origin;
             command.direction = ray.direction;
             command.distance = m_Camera.farClipPlane;
             command.maxHits = m_MaxHits;
@@ -117,8 +118,6 @@ public class RealtimeCulling : MonoBehaviour
 
         Vector3 separationUnit = new Vector3((float)Screen.height / (pointsRoot / aspectRatio), (float)Screen.width / (pointsRoot * aspectRatio));
 
-        m_ScreenPointRays = new Ray[m_ScreenPointsTotal];
-
         Vector3 screenRayPosition;
 
         //TODO: Smarter points placement
@@ -129,13 +128,15 @@ public class RealtimeCulling : MonoBehaviour
         {
             for (int j = 1; j < pointsRoot; j++)
             {
+                Vector3 screenPosition = new Vector3(j * separationUnit.x, i * separationUnit.y) + (Vector3)Random.insideUnitCircle * m_NoiseStrength;
+
                 //TODO: Factor in bias strength
-                float xPos = m_HorizontalBiasCurve.Evaluate((j * separationUnit.x) / Screen.width) * Screen.width;
-                float yPos = m_VerticalBiasCurve.Evaluate((i * separationUnit.y) / Screen.height) * Screen.height;
+                float xPos = m_HorizontalBiasCurve.Evaluate(screenPosition.x / Screen.width) * Screen.width;
+                float yPos = m_VerticalBiasCurve.Evaluate(screenPosition.y / Screen.height) * Screen.height;
 
                 screenRayPosition = new Vector3(xPos, yPos);
 
-                screenRayPosition += (Vector3)Random.insideUnitCircle * m_BiasStrength;
+                screenRayPosition += (Vector3)Random.insideUnitCircle * m_NoiseStrength;
 
                 m_ScreenPointRays[index] = m_Camera.ScreenPointToRay(screenRayPosition);
 
@@ -199,7 +200,7 @@ public class RealtimeCulling : MonoBehaviour
                 for (int i = 0; i < m_ScreenPointsTotal; i++)
                 {
                     Gizmos.color = new Color((float)i / m_ScreenPointsTotal, (float)i / m_ScreenPointsTotal, (float)i / m_ScreenPointsTotal, 0.25f);
-                    Gizmos.DrawRay(m_ScreenPointRays[i].origin + m_Camera.transform.position, m_ScreenPointRays[i].direction * m_Camera.farClipPlane);
+                    Gizmos.DrawRay(m_ScreenPointRays[i].origin, m_ScreenPointRays[i].direction * m_Camera.farClipPlane);
                 }
             }
         }
