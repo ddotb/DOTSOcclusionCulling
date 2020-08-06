@@ -14,7 +14,8 @@ public class RealtimeCulling : MonoBehaviour
     [SerializeField] private AnimationCurve m_HorizontalBiasCurve;
     [SerializeField] private AnimationCurve m_VerticalBiasCurve;
 
-    [SerializeField, Range(64, 16348)] private int m_ScreenPointsTotal = 2048;
+    [SerializeField, Range(8, 128)] private int m_HorizontalPoints = 8;
+    [SerializeField, Range(8, 64)] private int m_VerticalPoints = 8;
     [SerializeField, Range(8, 2048)] private int m_MaxObjects = 512;
     [SerializeField, Range(1, 16)] private int m_BatchingAmount = 16;
     [SerializeField, Range(1, 8)] private int m_MaxHits = 1;
@@ -35,12 +36,13 @@ public class RealtimeCulling : MonoBehaviour
     private ResultsJob m_ResultsJob;
     private JobHandle m_RaycastJobHandle;
 
+    private int m_ScreenPointsTotal;
+
     public NativeArray<bool> ResultsFlags { get => m_ResultsFlags; }
 
     private void Start()
     {
         m_RegisteredCullables = new List<CullableObject>(m_MaxObjects);
-        m_ScreenPointRays = new Ray[m_ScreenPointsTotal];
 
         BuildScreenRays();
 
@@ -64,9 +66,9 @@ public class RealtimeCulling : MonoBehaviour
 
     private void Update()
     {
-        BuildScreenRays();
-
         RaycastCommand command = new RaycastCommand();
+
+        BuildScreenRays();
 
         //Populate job data - could this be optimised? Possible unbreakable reliance on the camera position
         //This is taking 20% of the total feature time now
@@ -113,10 +115,10 @@ public class RealtimeCulling : MonoBehaviour
 
     private void BuildScreenRays()
     {
-        float pointsRoot = Mathf.Sqrt(m_ScreenPointsTotal);
-        float aspectRatio = m_Camera.aspect;
+        m_ScreenPointsTotal = m_HorizontalPoints * m_VerticalPoints;
+        m_ScreenPointRays = new Ray[m_ScreenPointsTotal];
 
-        Vector3 separationUnit = new Vector3((float)Screen.height / (pointsRoot / aspectRatio), (float)Screen.width / (pointsRoot * aspectRatio));
+        Vector3 separationUnit = new Vector3((float)Screen.height / m_VerticalPoints, (float)Screen.width / m_HorizontalPoints);
 
         Vector3 screenRayPosition;
 
@@ -124,11 +126,11 @@ public class RealtimeCulling : MonoBehaviour
         //TODO: add line of points along screen mid-height
         //Get roughly-evenly-spaced points across the frustum
         int index = 0;
-        for (int i = 1; i < pointsRoot; i++)
+        for (int i = 0; i < m_VerticalPoints; i++)
         {
-            for (int j = 1; j < pointsRoot; j++)
+            for (int j = 0; j < m_HorizontalPoints; j++)
             {
-                Vector3 screenPosition = new Vector3(j * separationUnit.x, i * separationUnit.y) + (Vector3)Random.insideUnitCircle * m_NoiseStrength;
+                Vector3 screenPosition = new Vector3(j * (Screen.width / m_HorizontalPoints), i * (Screen.height / m_VerticalPoints)) + (Vector3)Random.insideUnitCircle * m_NoiseStrength;
 
                 //TODO: Factor in bias strength
                 float xPos = m_HorizontalBiasCurve.Evaluate(screenPosition.x / Screen.width) * Screen.width;
