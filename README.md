@@ -1,4 +1,5 @@
 # DOTSOcclusionCulling
- A working example of realtime Occlusion Culling using Jobs/Burst
+A working example of realtime raycast-based Occlusion Culling using Jobs/Burst
 
-Needs a lot of tidying up and there are a thousand places this could be made better/optimised.
+Still needs some tidying up, allowing for re-use of array entries and also there's probably some more optimisation to make but it's roundabout there.
+Because it's raycast-based, it works better on larger objects such as buildings.
