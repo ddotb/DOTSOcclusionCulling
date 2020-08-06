@@ -76,6 +76,7 @@ public class RealtimeCulling : MonoBehaviour
         RaycastCommand command = new RaycastCommand();
 
         //Populate job data - could this be optimised? Possible unbreakable reliance on the camera position
+        //This is taking up 30% of the total feature time now
         for (int i = 0; i < m_ScreenPointsTotal; i++)
         {
             command.from = m_ScreenPointRays[i].origin + m_Camera.transform.position;
@@ -93,28 +94,27 @@ public class RealtimeCulling : MonoBehaviour
         m_RaycastJob.Complete();
 
         //TODO: Jobify arranging hit IDs
-        NativeArray<int> hitIDs = new NativeArray<int>(m_RaycastResults.Length, Allocator.TempJob, NativeArrayOptions.ClearMemory);
+        //This is taking up over 40% of the total feature time now
 
         for (int i = 0; i < m_RaycastResults.Length; i++)
         {
             if (m_RaycastResults[i].collider != null)
             {
-                hitIDs[i] = m_RaycastResults[i].collider.GetInstanceID();
+                m_HitIDs[i] = m_RaycastResults[i].collider.GetInstanceID();
             }
         }
 
         ResultsJob resultsJob = new ResultsJob
         {
-            Hits = hitIDs,
+            Hits = m_HitIDs,
             Cullables = m_CullableIDs,
             Results = m_ResultsFlags
         };
 
         resultsJob.Schedule(m_MaxObjects, m_BatchingAmount).Complete();
 
-        hitIDs.Dispose();
-
         //Update all registered objects - Unsure if this is optimisable
+        //This is taking up 20% of the total feature time now
         for (int i = 0; i < m_RegisteredCullables.Count; i++)
         {
             m_RegisteredCullables[i].SetRenderState(m_ResultsFlags[i]);
