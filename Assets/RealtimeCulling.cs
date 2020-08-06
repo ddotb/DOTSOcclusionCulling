@@ -11,11 +11,11 @@ public class RealtimeCulling : MonoBehaviour
     [SerializeField] private Camera m_Camera;
     [SerializeField] private Spawner m_ObjectSpawner;
 
-    [SerializeField, Range(100, 100000)] private int m_ScreenPointsTotal;
-    [SerializeField, Range(8, 2048)] private int m_MaxObjects;
-    [SerializeField, Range(1, 16)] private int m_BatchingAmount;
-    [SerializeField, Range(1, 8)] private int m_MaxHits;
-    [SerializeField, Range(0, 25)] private float m_NoiseStrength;
+    [SerializeField, Range(100, 100000)] private int m_ScreenPointsTotal = 2048;
+    [SerializeField, Range(8, 2048)] private int m_MaxObjects = 512;
+    [SerializeField, Range(1, 16)] private int m_BatchingAmount = 16;
+    [SerializeField, Range(1, 8)] private int m_MaxHits = 1;
+    [SerializeField, Range(0, 25)] private float m_NoiseStrength = 0;
 
     private Ray[] m_ScreenPointRays;
     private List<CullableObject> m_RegisteredCullables;
@@ -26,7 +26,8 @@ public class RealtimeCulling : MonoBehaviour
     private NativeArray<int> m_CullableIDs;
     private NativeArray<int> m_HitIDs;
 
-    private JobHandle m_RaycastJob;
+    private ResultsJob m_ResultsJob;
+    private JobHandle m_RaycastJobHandle;
 
     public NativeArray<bool> ResultsFlags { get => m_ResultsFlags; }
 
@@ -64,11 +65,18 @@ public class RealtimeCulling : MonoBehaviour
         //Set up native arrays for the jobs, clear memory
         m_RaycastResults = new NativeArray<RaycastHit>(m_ScreenPointsTotal, Allocator.Persistent, NativeArrayOptions.ClearMemory);
         m_RaycastCommands = new NativeArray<RaycastCommand>(m_ScreenPointsTotal, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+        m_HitIDs = new NativeArray<int>(m_ScreenPointsTotal, Allocator.Persistent, NativeArrayOptions.ClearMemory);
 
         //Set up our objects arrays using our defined maximum
         m_CullableIDs = new NativeArray<int>(m_MaxObjects, Allocator.Persistent, NativeArrayOptions.ClearMemory);
-        m_HitIDs = new NativeArray<int>(m_MaxObjects, Allocator.Persistent, NativeArrayOptions.ClearMemory);
         m_ResultsFlags = new NativeArray<bool>(m_MaxObjects, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+
+        m_ResultsJob = new ResultsJob
+        {
+            Hits = m_HitIDs,
+            Cullables = m_CullableIDs,
+            Results = m_ResultsFlags
+        };
     }
 
     private void Update()
@@ -88,30 +96,24 @@ public class RealtimeCulling : MonoBehaviour
         }
 
         //Fire off job
-        m_RaycastJob = RaycastCommand.ScheduleBatch(m_RaycastCommands, m_RaycastResults, m_BatchingAmount);
+        m_RaycastJobHandle = RaycastCommand.ScheduleBatch(m_RaycastCommands, m_RaycastResults, m_BatchingAmount);
 
         //Make sure job is complete
-        m_RaycastJob.Complete();
+        m_RaycastJobHandle.Complete();
 
         //TODO: Jobify arranging hit IDs
-        //This is taking up over 40% of the total feature time now
-
+        //This is taking up over 35% of the total feature time now
         for (int i = 0; i < m_RaycastResults.Length; i++)
         {
-            if (m_RaycastResults[i].collider != null)
+            Collider collider = m_RaycastResults[i].collider;
+
+            if (collider != null)
             {
-                m_HitIDs[i] = m_RaycastResults[i].collider.GetInstanceID();
+                m_HitIDs[i] = collider.GetInstanceID();
             }
         }
 
-        ResultsJob resultsJob = new ResultsJob
-        {
-            Hits = m_HitIDs,
-            Cullables = m_CullableIDs,
-            Results = m_ResultsFlags
-        };
-
-        resultsJob.Schedule(m_MaxObjects, m_BatchingAmount).Complete();
+        m_ResultsJob.Schedule(m_MaxObjects, m_BatchingAmount).Complete();
 
         //Update all registered objects - Unsure if this is optimisable
         //This is taking up 20% of the total feature time now

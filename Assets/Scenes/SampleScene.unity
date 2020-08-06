@@ -219,7 +219,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Camera: {fileID: 797101118}
   m_ObjectSpawner: {fileID: 1560958747}
-  m_ScreenPointsTotal: 100
+  m_ScreenPointsTotal: 2048
   m_MaxObjects: 512
   m_BatchingAmount: 16
   m_MaxHits: 1
