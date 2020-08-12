@@ -5,11 +5,15 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Burst;
 using UnityEngine;
+using System;
+using Unity.Mathematics;
+using Random = UnityEngine.Random;
 
 public class RealtimeCulling : MonoBehaviour
 {
     [SerializeField] private Camera m_Camera;
     [SerializeField] private Spawner m_ObjectSpawner;
+    [SerializeField] private NativeBSPTree m_BSPTree;
 
     [SerializeField] private AnimationCurve m_HorizontalBiasCurve;
     [SerializeField] private AnimationCurve m_VerticalBiasCurve;
@@ -20,6 +24,8 @@ public class RealtimeCulling : MonoBehaviour
     [SerializeField, Range(1, 16)] private int m_BatchingAmount = 16;
     [SerializeField, Range(1, 8)] private int m_MaxHits = 1;
     [SerializeField, Range(0, 1)] private float m_NoiseStrength = 0;
+
+    [SerializeField] private int m_MaxBSPDepth = 5;
 
     [SerializeField]
     private bool m_ShowRaycasts;
@@ -68,6 +74,7 @@ public class RealtimeCulling : MonoBehaviour
     {
         RaycastCommand command = new RaycastCommand();
 
+        BuildBSPTree();
         BuildScreenRays();
 
         //Populate job data - could this be optimised? Possible unbreakable reliance on the camera position
@@ -111,6 +118,23 @@ public class RealtimeCulling : MonoBehaviour
         {
             m_RegisteredCullables[i].SetRenderState(m_ResultsFlags[i]);
         }
+    }
+
+    private void BuildBSPTree()
+    {
+        NativeArray<BSPObject> objects = new NativeArray<BSPObject>(m_RegisteredCullables.Count, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+
+        BSPObject newObject = new BSPObject();
+
+        for (int i = 0; i < objects.Length; i++)
+        {
+            newObject.ID = i;
+            newObject.Position = new float3(m_RegisteredCullables[i].transform.position);
+
+            objects[i] = newObject;
+        }
+
+        m_BSPTree.Populate(objects, m_MaxBSPDepth);
     }
 
     private void BuildScreenRays()

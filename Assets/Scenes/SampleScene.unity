@@ -227,6 +227,7 @@ GameObject:
   - component: {fileID: 797101118}
   - component: {fileID: 797101117}
   - component: {fileID: 797101120}
+  - component: {fileID: 797101121}
   m_Layer: 0
   m_Name: Camera
   m_TagString: Untagged
@@ -313,6 +314,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Camera: {fileID: 797101118}
   m_ObjectSpawner: {fileID: 1560958747}
+  m_BSPTree: {fileID: 797101121}
   m_HorizontalBiasCurve:
     serializedVersion: 2
     m_Curve:
@@ -394,7 +396,20 @@ MonoBehaviour:
   m_BatchingAmount: 16
   m_MaxHits: 1
   m_NoiseStrength: 0
+  m_MaxBSPDepth: 0
   m_ShowRaycasts: 1
+--- !u!114 &797101121
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 797101116}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a8b5eaa4ff8130a4086e1b218271215e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1091380706
 GameObject:
   m_ObjectHideFlags: 0
